@@ -40,17 +40,6 @@ class MemCache implements CacheInterface
         if (!$this->store->getVersion()) {
             throw new CacheException('connection failed');
         }
-
-        $this->options = $options + [
-            Memcached::OPT_NO_BLOCK => true,
-            Memcached::OPT_BUFFER_WRITES => false,
-            Memcached::OPT_BINARY_PROTOCOL => true,
-            Memcached::OPT_LIBKETAMA_COMPATIBLE => false,
-            Memcached::OPT_TCP_NODELAY => true,
-            Memcached::OPT_COMPRESSION => true,
-            Memcached::OPT_SERIALIZER => Memcached::SERIALIZER_PHP,
-            Memcached::OPT_HASH => Memcached::HASH_CRC
-        ];
     }
 
     public function __destruct()
