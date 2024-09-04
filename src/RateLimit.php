@@ -2,6 +2,8 @@
 
 namespace Pebble\Cache;
 
+use Psr\SimpleCache\CacheInterface;
+
 final class RateLimit
 {
     private CacheInterface $cache;

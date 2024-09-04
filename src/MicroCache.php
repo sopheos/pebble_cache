@@ -2,6 +2,8 @@
 
 namespace Pebble\Cache;
 
+use DateInterval;
+
 /**
  * MicroCache
  *
@@ -15,15 +17,20 @@ class MicroCache implements CacheInterface
 
     // -------------------------------------------------------------------------
 
+
+    public function has(string $key): bool
+    {
+        return array_key_exists($key, $this->data);
+    }
+
     /**
      * @param string $key
      * @return mixed
      */
-    public function get(string $key): mixed
+    public function get(string $key, mixed $default = null): mixed
     {
         $key = $this->getKey($key);
-
-        return $this->data[$key] ?? null;
+        return $this->data[$key] ?? $default;
     }
 
     /**
@@ -32,37 +39,64 @@ class MicroCache implements CacheInterface
      * @param int $expiration
      * @return static
      */
-    public function set(string $key, $value, int $expiration = 0): static
+    public function set(string $key, mixed $value, null|int|DateInterval $ttl = null): bool
     {
         $key = $this->getKey($key);
-
         $this->data[$key] = $value;
 
-        return $this;
+        return true;
     }
 
     /**
      * @param string $key
      * @return static
      */
-    public function delete(string $key): static
+    public function delete(string $key): bool
     {
         $key = $this->getKey($key);
 
-        if (isset($this->data[$key])) {
+        if ($this->has($key)) {
             unset($this->data[$key]);
         }
 
-        return $this;
+        return true;
     }
 
-    /**
-     * @param string $key
-     * @param int $expiration
-     * @param int $offset
-     * @return static
-     */
-    public function increment(string $key, int $expiration = 0, int $offset = 1): static
+    public function clear(): bool
+    {
+        $this->data = [];
+        return true;
+    }
+
+    public function getMultiple(iterable $keys, mixed $default = null): iterable
+    {
+        $data = [];
+
+        foreach ($keys as $key) {
+            $data[$key] = $this->get($key, $default);
+        }
+
+        return $data;
+    }
+
+    public function setMultiple(iterable $values, null|int|DateInterval $ttl = null): bool
+    {
+        foreach ($values as $key => $value) {
+            $this->set($key, $value);
+        }
+        return true;
+    }
+
+    public function deleteMultiple(iterable $keys): bool
+    {
+        foreach ($keys as $key) {
+            $this->delete($key);
+        }
+
+        return true;
+    }
+
+    public function increment(string $key, null|int|DateInterval $ttl = null, int $offset = 1): bool
     {
         $key = $this->getKey($key);
 
@@ -72,16 +106,10 @@ class MicroCache implements CacheInterface
             $this->data[$key] += $offset;
         }
 
-        return $this;
+        return true;
     }
 
-    /**
-     * @param string $key
-     * @param int $expiration
-     * @param int $offset
-     * @return static
-     */
-    public function decrement(string $key, int $expiration = 0, int $offset = 1): static
+    public function decrement(string $key, null|int|DateInterval $ttl = null, int $offset = 1): bool
     {
         $key = $this->getKey($key);
 
@@ -91,7 +119,7 @@ class MicroCache implements CacheInterface
             $this->data[$key] -= $offset;
         }
 
-        return $this;
+        return true;
     }
 
     // -------------------------------------------------------------------------

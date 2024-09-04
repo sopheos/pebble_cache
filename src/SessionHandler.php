@@ -2,6 +2,7 @@
 
 namespace Pebble\Cache;
 
+use Psr\SimpleCache\CacheInterface;
 use SessionHandlerInterface;
 
 /**
@@ -17,10 +18,6 @@ class SessionHandler implements SessionHandlerInterface
 
     // -------------------------------------------------------------------------
 
-    /**
-     * @param CacheManager $cache
-     * @param array $options
-     */
     public function __construct(CacheInterface $cache, int $expiration = 3600, string $prefix = 'sess_')
     {
         $this->cache = $cache;

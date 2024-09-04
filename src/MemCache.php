@@ -2,6 +2,7 @@
 
 namespace Pebble\Cache;
 
+use DateInterval;
 use Memcached;
 
 /**
@@ -54,94 +55,103 @@ class MemCache implements CacheInterface
 
     // -------------------------------------------------------------------------
 
-    /**
-     * @param string $key
-     * @return mixed
-     */
-    public function get(string $key): mixed
+    public function has(string $key): bool
+    {
+        if ($this->get($key)) {
+            return true;
+        }
+
+        return Memcached::RES_NOTFOUND !== $this->store->getResultCode();
+    }
+
+    public function get(string $key, mixed $default = null): mixed
     {
         $key = $this->getKey($key);
         $value = $this->store->get($key);
 
-        return $value !== false ? $value : null;
+        return $value !== false ? $value : $default;
     }
 
-
-    /**
-     * @param string $key
-     * @param mixed $value
-     * @param int $expiration
-     * @return static
-     */
-    public function set(string $key, $value, int $expiration = 0): static
+    public function set(string $key, mixed $value, null|int|DateInterval $ttl = null): bool
     {
         $key = $this->getKey($key);
-        $this->store->set($key, $value, $this->exp($expiration));
-
-        return $this;
+        return $this->store->set($key, $value, $this->exp($ttl));
     }
 
-    /**
-     * @param string $key
-     * @return static
-     */
-    public function delete(string $key): static
+    public function delete(string $key): bool
     {
         $key = $this->getKey($key);
-        $this->store->delete($key);
-
-        return $this;
+        return $this->store->delete($key);
     }
 
-    /**
-     * @param string $key
-     * @param int $expiration
-     * @param int $offset
-     * @return static
-     */
-    public function increment(string $key, int $expiration = 0, int $offset = 1): static
+    public function clear(): bool
+    {
+        return $this->store->flush();
+    }
+
+    public function getMultiple(iterable $keys, mixed $default = null): iterable
+    {
+        $data = $this->store->getMulti($this->getKeys([...$keys])) ?: [];
+        return $this->getValues($keys, $this->decode($data), $default);
+    }
+
+    public function setMultiple(iterable $values, null|int|DateInterval $ttl = null): bool
+    {
+        $this->store->setMulti(
+            $this->encode([...$values]),
+            $this->exp($ttl)
+        );
+
+        return true;
+    }
+
+    public function deleteMultiple(iterable $keys): bool
+    {
+        $keys = $this->getKeys([...$keys]);
+        $this->store->deleteMulti($keys);
+
+        return true;
+    }
+
+    public function increment(string $key, null|int|DateInterval $ttl = null, int $offset = 1): bool
     {
         $key = $this->getKey($key);
-        $exp = $this->exp($expiration);
+        $exp = $this->exp($ttl);
         $this->store->increment($key, $offset, $offset, $exp);
         $this->store->touch($key, $exp);
 
-        return $this;
+        return true;
     }
 
-    /**
-     * @param string $key
-     * @param int $expiration
-     * @param int $offset
-     * @return static
-     */
-    public function decrement(string $key, int $expiration = 0, int $offset = 1): static
+    public function decrement(string $key, null|int|DateInterval $ttl = null, int $offset = 1): bool
     {
         $key = $this->getKey($key);
-        $exp = $this->exp($expiration);
+        $exp = $this->exp($ttl);
         $this->store->decrement($key, $offset, -1 * $offset, $exp);
         $this->store->touch($key, $exp);
 
-        return $this;
+        return true;
     }
 
     // -------------------------------------------------------------------------
 
-    /**
-     * @param int $exp
-     * @return int
-     */
-    protected function exp($exp)
+    protected function exp(null|int|DateInterval $ttl = null): int
     {
         $now = time();
 
-        // Memcached use the UNIX time
-        // when the expiration is greater than 30 days
-        if ($exp < $now && $exp > 2592000) {
-            $exp = $now + $exp;
+        if ($ttl === null) {
+            $ttl = 0;
+        } elseif ($ttl instanceof DateInterval) {
+            $ttl = Helper::dateInterval2Seconds($ttl);
         }
 
-        return $exp;
+        // Memcached use the UNIX time
+        // when the expiration is greater than 30 days
+        if ($ttl < $now && $ttl > 2592000) {
+            $ttl = $now + $ttl;
+        }
+
+        return $ttl;
     }
 
     // -------------------------------------------------------------------------
